@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Obsidian-Link</title>
+<style>
+  :root { --bg:#f7f7f5; --fg:#1f1f1f; --muted:#6b6b6b; --card:#fff; --border:#e3e3e0; --accent:#7c3aed; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#191919; --fg:#ececec; --muted:#9b9b9b; --card:#232323; --border:#333; --accent:#a78bfa; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--fg); }
+  main { max-width:640px; margin:48px auto; padding:0 16px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:24px; }
+  h1 { font-size:1.25rem; margin:0 0 8px; }
+  p { margin:0 0 16px; color:var(--muted); }
+  label { display:block; font-weight:600; margin-bottom:6px; }
+  input, textarea { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--fg); font:inherit; }
+  textarea { resize:vertical; min-height:72px; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:14px; }
+  button, a.btn { display:inline-block; margin-top:12px; padding:10px 16px; border:0; border-radius:8px; background:var(--accent); color:#fff; font:inherit; font-weight:600; cursor:pointer; text-decoration:none; }
+  .hidden { display:none; }
+  .err { color:#dc2626; }
+  .ok { color:var(--muted); font-size:14px; margin-left:8px; }
+</style>
+</head>
+<body>
+<main>
+  <!-- Weiterleitung -->
+  <div id="redirect" class="card hidden">
+    <h1>Öffne Obsidian …</h1>
+    <p>Falls sich Obsidian nicht automatisch öffnet, klicke auf den Button.</p>
+    <a id="open" class="btn" href="#">In Obsidian öffnen</a>
+  </div>
+
+  <!-- Fehler -->
+  <div id="error" class="card hidden">
+    <h1 class="err">Ungültiger Link</h1>
+    <p>Dieser Link enthält keine gültige <code>obsidian://</code>-Adresse.</p>
+  </div>
+
+  <!-- Link-Generator -->
+  <div id="generator" class="card hidden">
+    <h1>Obsidian-Link für Notion erstellen</h1>
+    <p>In Obsidian: Rechtsklick auf die Notiz → „Copy Obsidian URL“. Hier einfügen, dann den erzeugten Link in Notion verwenden.</p>
+    <label for="src">Obsidian-URL</label>
+    <input id="src" placeholder="obsidian://open?vault=…&amp;file=…" autocomplete="off">
+    <div id="out-wrap" class="hidden">
+      <label for="out" style="margin-top:16px">Link für Notion</label>
+      <textarea id="out" readonly></textarea>
+      <button id="copy" type="button">Kopieren</button><span id="copied" class="ok hidden">Kopiert ✓</span>
+    </div>
+    <p id="gen-err" class="err hidden" style="margin-top:12px">Die Adresse muss mit obsidian:// beginnen.</p>
+  </div>
+</main>
+<script>
+(function () {
+  var PREFIX = "obsidian://";
+  var show = function (id) { document.getElementById(id).classList.remove("hidden"); };
+  var hide = function (id) { document.getElementById(id).classList.add("hidden"); };
+
+  // Ziel aus ?to=… lesen. Funktioniert mit kodiertem und unkodiertem Link.
+  function getTarget() {
+    var q = window.location.search;
+    var i = q.indexOf("to=");
+    if (i === -1) return null;
+    var raw = q.slice(i + 3);
+    var decoded = raw;
+    try { decoded = decodeURIComponent(raw); } catch (e) {}
+    return decoded;
+  }
+
+  var target = getTarget();
+
+  if (target === null || target === "") {
+    show("generator");
+    var src = document.getElementById("src");
+    var out = document.getElementById("out");
+    src.addEventListener("input", function () {
+      var v = src.value.trim();
+      hide("copied");
+      if (!v) { hide("out-wrap"); hide("gen-err"); return; }
+      if (v.toLowerCase().indexOf(PREFIX) !== 0) { hide("out-wrap"); show("gen-err"); return; }
+      hide("gen-err");
+      var base = window.location.origin + window.location.pathname;
+      out.value = base + "?to=" + encodeURIComponent(v);
+      show("out-wrap");
+    });
+    document.getElementById("copy").addEventListener("click", function () {
+      out.select();
+      var done = function () { show("copied"); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(out.value).then(done, function () { document.execCommand("copy"); done(); });
+      } else { document.execCommand("copy"); done(); }
+    });
+    return;
+  }
+
+  // Nur obsidian:// erlauben, damit die Seite nicht als offene Weiterleitung missbraucht werden kann.
+  if (target.toLowerCase().indexOf(PREFIX) !== 0) { show("error"); return; }
+
+  show("redirect");
+  document.getElementById("open").setAttribute("href", target);
+  window.location.href = target;
+})();
+</script>
+</body>
+</html>
